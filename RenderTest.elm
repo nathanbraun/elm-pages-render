@@ -1,0 +1,539 @@
+module Render exposing (render, renderer)
+
+import AB exposing (TestVersion, Version(..))
+import Element exposing (Element)
+import Element.Background
+import Element.Border
+import Element.Font as Font
+import Element.Input
+import Element.Region
+import FlatColors.FlatUIPalette as FlatColors
+import Html exposing (Html)
+import Html.Attributes
+import Html.Events
+import Json.Decode as Decode
+import List.Extra as Extra
+import Markdown.Block as Block exposing (Block, Inline, ListItem(..), Task(..))
+import Markdown.Html
+import Markdown.Renderer
+import Types exposing (Model, Msg(..))
+
+
+render : List Block -> Result String (Model -> Element Msg)
+render blocks =
+    blocks
+        |> Markdown.Renderer.render renderer
+        |> Result.map
+            (\blockViews model ->
+                blockViews
+                    |> renderAll model
+                    |> Element.column [ Element.spacing 8 ]
+            )
+
+
+renderAll : model -> List (model -> view) -> List view
+renderAll model =
+    List.map ((|>) model)
+
+
+codeBlock : { body : String, language : Maybe String } -> Model -> Element msg
+codeBlock details _ =
+    Element.el
+        [ Element.Background.color (Element.rgba 0 0 0 0.03)
+        , Element.htmlAttribute (Html.Attributes.style "white-space" "pre")
+        , Element.padding 20
+        , Font.family
+            [ Font.external
+                { url = "https://fonts.googleapis.com/css?family=Source+Code+Pro"
+                , name = "Source Code Pro"
+                }
+            ]
+        ]
+        (Element.text details.body)
+
+
+code : String -> Model -> Element msg
+code snippet _ =
+    Element.el
+        [ Element.Background.color
+            (Element.rgba 0 0 0 0.04)
+        , Element.Border.rounded 2
+        , Element.paddingXY 5 3
+        , Font.family
+            [ Font.external
+                { url = "https://fonts.googleapis.com/css?family=Source+Code+Pro"
+                , name = "Source Code Pro"
+                }
+            ]
+        ]
+        (Element.text snippet)
+
+
+heading :
+    { level : Block.HeadingLevel
+    , rawText : String
+    , children :
+        List (Model -> Element msg)
+    }
+    -> Model
+    -> Element msg
+heading { level, rawText, children } model =
+    Element.paragraph
+        [ Font.size
+            (case level of
+                Block.H1 ->
+                    40
+
+                Block.H2 ->
+                    32
+
+                Block.H3 ->
+                    28
+
+                Block.H4 ->
+                    24
+
+                _ ->
+                    20
+            )
+        , Font.bold
+        , Font.family []
+        , headingPadding level
+
+        -- , Element.paddingEach { bottom = 0, left = 0, right = 0, top = 15 }
+        -- , Element.paddingXY 0 15
+        , Element.Region.heading (Block.headingLevelToInt level)
+        , Element.htmlAttribute
+            (Html.Attributes.attribute "name" (rawTextToId rawText))
+        , Element.htmlAttribute
+            (Html.Attributes.id (rawTextToId rawText))
+        ]
+        (renderAll model children)
+
+
+rawTextToId rawText =
+    rawText
+        |> String.split " "
+        |> String.join "-"
+        |> String.toLower
+
+
+renderer : Markdown.Renderer.Renderer (Model -> Element Msg)
+renderer =
+    { html =
+        Markdown.Html.oneOf
+            [ Markdown.Html.tag "center"
+                (\children model ->
+                    Element.column [ fill ]
+                        (List.map
+                            (\x ->
+                                Element.row [ Element.centerX ] [ x ]
+                            )
+                            (renderAll model
+                                children
+                            )
+                        )
+                )
+            , Markdown.Html.tag "callout"
+                (\children model ->
+                    Element.column
+                        [ Element.centerX
+                        , Element.paddingXY 20 0
+                        ]
+                        [ Element.paragraph [ Font.size 24 ]
+                            (renderAll model
+                                children
+                            )
+                        ]
+                )
+            , Markdown.Html.tag "test"
+                (\id version name children model ->
+                    let
+                        test =
+                            Extra.find
+                                (\x -> x.testId == id)
+                                model.tests
+                                |> Maybe.map .version
+
+                        -- (TestVersion "" 1 A "")
+                    in
+                    case ( version, test ) of
+                        ( "A", Just A ) ->
+                            Element.column [ Element.width Element.fill ]
+                                (renderAll model
+                                    children
+                                )
+
+                        ( "B", Just B ) ->
+                            Element.column [ Element.width Element.fill ]
+                                (renderAll model
+                                    children
+                                )
+
+                        _ ->
+                            Element.none
+                )
+                |> Markdown.Html.withAttribute "id"
+                |> Markdown.Html.withAttribute "version"
+                |> Markdown.Html.withAttribute "name"
+            , Markdown.Html.tag "email-input"
+                (\id text children model ->
+                    Element.wrappedRow [ fill, Element.spacing 20, Element.paddingXY 0 10 ]
+                        [ Element.Input.email
+                            [ Element.width
+                                (Element.fillPortion 1 |> Element.minimum 250)
+                            , onEnter EmailEnterPressed
+                            ]
+                            { onChange = UpdateEmail
+                            , label =
+                                Element.Input.labelHidden "Email"
+                            , text = model.email
+                            , placeholder =
+                                Just
+                                    (Element.Input.placeholder []
+                                        (Element.text "Email")
+                                    )
+                            }
+                        , Element.Input.button
+                            [ Element.centerX ]
+                            { onPress =
+                                Just (SubmitEmail id model.email)
+                            , label =
+                                Element.el
+                                    [ Element.Border.width 1
+                                    , Element.Border.rounded 5
+                                    , Element.Background.color FlatColors.peterRiver
+                                    , Element.paddingXY 15 10
+                                    ]
+                                    (Element.el
+                                        [ Font.color
+                                            (Element.rgb255
+                                                255
+                                                255
+                                                255
+                                            )
+                                        , Font.regular
+                                        ]
+                                        (Element.text text)
+                                    )
+                            }
+                        ]
+                )
+                |> Markdown.Html.withAttribute "id"
+                |> Markdown.Html.withAttribute "text"
+            , Markdown.Html.tag "section"
+                (\width pad_x pad_y spacing background font children model ->
+                    let
+                        spacing_ =
+                            spacing
+                                |> Maybe.andThen String.toInt
+                                |> Maybe.withDefault 20
+
+                        width_ =
+                            width
+                                |> Maybe.andThen String.toInt
+                                |> Maybe.withDefault 850
+
+                        padX_ =
+                            pad_x
+                                |> Maybe.andThen String.toInt
+                                |> Maybe.withDefault 30
+
+                        padY_ =
+                            pad_y
+                                |> Maybe.andThen String.toInt
+                                |> Maybe.withDefault 20
+
+                        background_ =
+                            case background of
+                                Just "clouds" ->
+                                    FlatColors.clouds
+
+                                Just "midnightBlue" ->
+                                    FlatColors.midnightBlue
+
+                                _ ->
+                                    Element.rgb255 255 255 255
+
+                        fontColor_ =
+                            case font of
+                                Just "clouds" ->
+                                    FlatColors.clouds
+
+                                Just "midnightBlue" ->
+                                    FlatColors.midnightBlue
+
+                                Just "asbestos" ->
+                                    Element.rgb255 150 150 150
+
+                                _ ->
+                                    Element.rgba255 0 0 0 0.8
+                    in
+                    Element.column
+                        [ Element.width
+                            (Element.fill
+                                |> Element.maximum
+                                    width_
+                            )
+                        , Element.paddingXY padX_ padY_
+                        , Element.centerX
+                        , Element.spacing spacing_
+                        , Element.Background.color background_
+                        , Font.color fontColor_
+                        ]
+                        (renderAll model
+                            children
+                        )
+                )
+                |> Markdown.Html.withOptionalAttribute "width"
+                |> Markdown.Html.withOptionalAttribute "pad_x"
+                |> Markdown.Html.withOptionalAttribute "pad_y"
+                |> Markdown.Html.withOptionalAttribute "spacing"
+                |> Markdown.Html.withOptionalAttribute "background"
+                |> Markdown.Html.withOptionalAttribute "font"
+            , Markdown.Html.tag "image_text"
+                (\src fill1 fill2 children model ->
+                    Element.wrappedRow
+                        [ Element.spacing 30
+                        , Element.paddingXY 30 10
+                        ]
+                        [ Element.image
+                            [ Element.alignTop
+
+                            -- [ Element.centerY
+                            , Element.width
+                                (Element.fillPortion
+                                    (fill1
+                                        |> String.toInt
+                                        |> Maybe.withDefault 1
+                                    )
+                                    |> Element.minimum 250
+                                )
+                            ]
+                            { src = src
+                            , description = "my image"
+                            }
+                        , Element.column
+                            [ Element.width
+                                (Element.fillPortion
+                                    (fill2
+                                        |> String.toInt
+                                        |> Maybe.withDefault 1
+                                    )
+                                )
+                            , Element.alignTop
+                            , Element.spacing 8
+                            ]
+                            (renderAll model
+                                children
+                            )
+                        ]
+                )
+                |> Markdown.Html.withAttribute "src"
+                |> Markdown.Html.withAttribute "fill1"
+                |> Markdown.Html.withAttribute "fill2"
+            ]
+    , heading = heading
+    , paragraph =
+        \children model ->
+            Element.paragraph
+                [ Element.paddingXY 0 5
+                , Element.spacing 8
+                , Element.width
+                    Element.fill
+
+                -- , Font.light
+                ]
+                (renderAll model
+                    children
+                )
+    , thematicBreak =
+        \_ ->
+            Element.row
+                [ fill
+                , Element.Border.widthEach
+                    { top = 0
+                    , right = 0
+                    , bottom = 1
+                    , left = 0
+                    }
+                , Element.paddingXY 0 0
+                , Element.Border.color (Element.rgb255 145 145 145)
+                , Element.Background.color (Element.rgb255 255 255 255)
+                ]
+                [ Element.none ]
+    , text = \children _ -> Element.text children
+    , strong =
+        \content model ->
+            Element.row [ Font.bold ]
+                (renderAll model
+                    content
+                )
+    , emphasis =
+        \content model ->
+            Element.row [ Font.italic ]
+                (renderAll model
+                    content
+                )
+    , codeSpan = \_ _ -> Element.none
+    , link =
+        \{ title, destination } body model ->
+            Element.link
+                [ Element.htmlAttribute
+                    (Html.Attributes.style "display"
+                        "inline-flex"
+                    )
+                ]
+                { url = destination
+                , label =
+                    Element.paragraph
+                        [ Font.underline ]
+                        -- [ Font.color (Element.rgb255 7 81 219)
+                        -- ]
+                        (renderAll model body)
+                }
+    , hardLineBreak = \_ -> Html.br [] [] |> Element.html
+    , image =
+        \image _ ->
+            Element.image [ fill ]
+                { src = image.src
+                , description = image.alt
+                }
+    , blockQuote =
+        \children model ->
+            Element.column
+                [ Element.Border.widthEach
+                    { top = 0
+                    , right = 0
+                    , bottom = 0
+                    , left = 10
+                    }
+                , Element.padding 10
+                , Element.Border.color (Element.rgb255 145 145 145)
+                , Element.Background.color (Element.rgb255 245 245 245)
+                ]
+                (renderAll model children)
+    , unorderedList =
+        \items model ->
+            Element.column
+                [ Element.spacing 10
+                , Element.paddingXY 5 0
+                , fill
+                ]
+                (items
+                    |> List.map
+                        (\(ListItem task children) ->
+                            Element.row
+                                [ Element.alignTop, fill ]
+                                ((case task of
+                                    IncompleteTask ->
+                                        Element.Input.defaultCheckbox False
+
+                                    CompletedTask ->
+                                        Element.Input.defaultCheckbox True
+
+                                    NoTask ->
+                                        Element.el
+                                            [ Font.size 24
+                                            , Element.paddingXY 10 0
+                                            , Element.alignTop
+                                            ]
+                                            (Element.text "•")
+                                 )
+                                    :: Element.text " "
+                                    :: [ Element.paragraph
+                                            [ Element.spacing
+                                                8
+                                            ]
+                                            (renderAll model children)
+                                       ]
+                                )
+                        )
+                )
+    , orderedList =
+        \startingIndex items model ->
+            Element.column [ Element.spacing 15 ]
+                (items
+                    |> List.indexedMap
+                        (\index itemBlocks ->
+                            Element.row [ Element.spacing 5 ]
+                                [ Element.row [ Element.alignTop ]
+                                    (Element.text
+                                        (String.fromInt
+                                            (index
+                                                + startingIndex
+                                            )
+                                            ++ " "
+                                        )
+                                        :: renderAll model
+                                            itemBlocks
+                                    )
+                                ]
+                        )
+                )
+    , codeBlock = codeBlock
+    , table = \children model -> Element.column [] (renderAll model children)
+    , tableHeader =
+        \children model ->
+            Element.column []
+                (renderAll model
+                    children
+                )
+    , tableBody =
+        \children model ->
+            Element.column []
+                (renderAll model
+                    children
+                )
+    , tableRow = \children model -> Element.row [] (renderAll model children)
+    , tableHeaderCell =
+        \maybeAlignment children model ->
+            Element.paragraph [] (renderAll model children)
+    , tableCell =
+        \children model ->
+            Element.paragraph []
+                (renderAll model
+                    children
+                )
+    }
+
+
+fill : Element.Attribute msg
+fill =
+    Element.width Element.fill
+
+
+headingPadding : Block.HeadingLevel -> Element.Attribute msg
+headingPadding level =
+    case level of
+        Block.H1 ->
+            Element.paddingEach { bottom = 10, left = 0, right = 0, top = 15 }
+
+        Block.H2 ->
+            Element.paddingEach { bottom = 0, left = 0, right = 0, top = 15 }
+
+        Block.H3 ->
+            Element.paddingXY 0 10
+
+        Block.H4 ->
+            Element.paddingXY 0 5
+
+        _ ->
+            Element.paddingXY 0 5
+
+
+onEnter : msg -> Element.Attribute msg
+onEnter msg =
+    Element.htmlAttribute
+        (Html.Events.on "keyup"
+            (Decode.field "key" Decode.string
+                |> Decode.andThen
+                    (\key ->
+                        if key == "Enter" then
+                            Decode.succeed msg
+
+                        else
+                            Decode.fail "Not the enter key"
+                    )
+            )
+        )
