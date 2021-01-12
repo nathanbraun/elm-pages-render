@@ -1,4 +1,4 @@
-module Render exposing (render, renderer)
+module Render exposing (render)
 
 import AB exposing (TestVersion, Version(..))
 import Element exposing (Element)
