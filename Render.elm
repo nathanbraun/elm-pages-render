@@ -144,7 +144,7 @@ renderer =
                 )
                 |> Markdown.Html.withOptionalAttribute "spacing"
             , Markdown.Html.tag "email-input"
-                (\id text children model ->
+                (\id group text children model ->
                     case model.submittedEmail of
                         True ->
                             Element.paragraph
@@ -164,7 +164,7 @@ renderer =
                                 [ Element.Input.email
                                     [ Element.width
                                         (Element.fillPortion 1 |> Element.minimum 250)
-                                    , onEnter EmailEnterPressed
+                                    , onEnter (EmailEnterPressed group)
                                     ]
                                     { onChange = UpdateEmail
                                     , label =
@@ -179,7 +179,7 @@ renderer =
                                 , Element.Input.button
                                     [ Element.centerX ]
                                     { onPress =
-                                        Just (SubmitEmail id model.email)
+                                        Just (SubmitEmail group id model.email)
                                     , label =
                                         Element.el
                                             [ Element.Border.width 1
@@ -202,6 +202,7 @@ renderer =
                                 ]
                 )
                 |> Markdown.Html.withAttribute "id"
+                |> Markdown.Html.withAttribute "group"
                 |> Markdown.Html.withAttribute "text"
             , Markdown.Html.tag "callout"
                 (\children model ->
