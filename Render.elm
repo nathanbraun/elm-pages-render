@@ -82,7 +82,7 @@ heading { level, rawText, children } model =
         [ Font.size
             (case level of
                 Block.H1 ->
-                    36
+                    48
 
                 Block.H2 ->
                     32
@@ -640,6 +640,49 @@ renderer =
                         )
                 )
                 |> Markdown.Html.withOptionalAttribute "spacing"
+            , Markdown.Html.tag "image_text2"
+                (\src fill1 fill2 children model ->
+                    Element.wrappedRow
+                        [ Element.spacing 30
+                        , Element.paddingXY 30 10
+                        ]
+                        [ Element.column
+                            [ Element.width
+                                (Element.fillPortion
+                                    (fill2
+                                        |> String.toInt
+                                        |> Maybe.withDefault 1
+                                    )
+                                )
+                            , Element.alignTop
+                            , Element.spacing 8
+                            ]
+                            (renderAll model
+                                children
+                            )
+                        , Element.image
+                            [ Element.centerY
+                            , Element.padding 15
+
+                            -- [ Element.centerY
+                            , Element.width
+                                (Element.fillPortion
+                                    (fill1
+                                        |> String.toInt
+                                        |> Maybe.withDefault 1
+                                    )
+                                    |> Element.minimum 250
+                                    |> Element.maximum 300
+                                )
+                            ]
+                            { src = src
+                            , description = "my image"
+                            }
+                        ]
+                )
+                |> Markdown.Html.withAttribute "src"
+                |> Markdown.Html.withAttribute "fill1"
+                |> Markdown.Html.withAttribute "fill2"
             , Markdown.Html.tag "image_text"
                 (\src fill1 fill2 children model ->
                     Element.wrappedRow
@@ -657,6 +700,7 @@ renderer =
                                         |> Maybe.withDefault 1
                                     )
                                     |> Element.minimum 250
+                                 -- |> Element.maximum 400
                                 )
                             ]
                             { src = src
