@@ -302,6 +302,42 @@ renderer =
                 (\children model ->
                     stars
                 )
+            , Markdown.Html.tag "link"
+                (\url label children model ->
+                    let
+                        source =
+                            Element.link
+                                [ Element.htmlAttribute
+                                    (Html.Attributes.style "display"
+                                        "inline-flex"
+                                    )
+                                ]
+                                { url = url
+                                , label =
+                                    Element.el
+                                        [ Font.color
+                                            (Element.rgb255 7
+                                                81
+                                                219
+                                            )
+
+                                        -- , Font.underline
+                                        ]
+                                        (Element.text label)
+                                }
+                    in
+                    Element.paragraph []
+                        [ Element.Input.button []
+                            { onPress =
+                                Just
+                                    (ShowGumroad "buy")
+                            , label = source
+                            }
+                        , Element.text "? — 30 day money back guarantee!"
+                        ]
+                )
+                |> Markdown.Html.withAttribute "url"
+                |> Markdown.Html.withAttribute "label"
             , Markdown.Html.tag "quote"
                 (\name link children model ->
                     let
