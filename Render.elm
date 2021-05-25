@@ -161,14 +161,14 @@ renderer =
                             viewLoading
 
                         Failure _ ->
-                            Element.textColumn [ Element.centerX ]
+                            Element.textColumn [ fill ]
                                 [ Element.paragraph
                                     [ fill
                                     , Element.centerX
                                     , Element.spacing 8
                                     , Element.paddingXY 0 10
                                     ]
-                                    [ Element.text "Dang! There was an error grabbing your email. This has been happening occasionally. I'm working on figuring out why, but in the meantime you can grab the preview here:" ]
+                                    [ Element.text "Dang! There was an error getting your email. This has been happening occasionally. I'm working on figuring out why, but in the meantime you can grab the preview here:" ]
                                 , Element.el
                                     [ Element.centerX
                                     , Element.spacing 8
@@ -182,14 +182,14 @@ renderer =
                                     , Element.spacing 8
                                     , Element.paddingXY 0 10
                                     ]
-                                    [ Element.text "Please email me ("
+                                    [ Element.text "If you wouldn't mind, email me ("
                                     , Element.link
                                         [ Font.color (Element.rgb255 7 81 219)
                                         ]
                                         { url = "mailto:nate@nathanbraun.com"
                                         , label = Element.text "nate@nathanbraun.com"
                                         }
-                                    , Element.text ") with any questions, feedback or if you want me to add you to the mailing list manually. Always happy to talk!"
+                                    , Element.text ") and let me know I missed you. Or with any questions, feedback or details on your situation. Always happy to talk!"
                                     ]
                                 ]
 
