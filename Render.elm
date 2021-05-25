@@ -13,9 +13,11 @@ import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
 import List.Extra as Extra
+import Loading exposing (LoaderType(..), defaultConfig, render)
 import Markdown.Block as Block exposing (Block, Inline, ListItem(..), Task(..))
 import Markdown.Html
 import Markdown.Renderer
+import RemoteData exposing (RemoteData(..))
 import Types exposing (Model, Msg(..))
 
 
@@ -146,7 +148,7 @@ renderer =
             , Markdown.Html.tag "email-input"
                 (\id group text children model ->
                     case model.submittedEmail of
-                        True ->
+                        Success _ ->
                             Element.paragraph
                                 [ fill
                                 , Element.spacing 8
@@ -155,7 +157,43 @@ renderer =
                                 [ Element.text "Thanks! Check your email for a link to the sample chapter. "
                                 ]
 
-                        False ->
+                        Loading ->
+                            viewLoading
+
+                        Failure _ ->
+                            Element.textColumn [ Element.centerX ]
+                                [ Element.paragraph
+                                    [ fill
+                                    , Element.centerX
+                                    , Element.spacing 8
+                                    , Element.paddingXY 0 10
+                                    ]
+                                    [ Element.text "Dang! There was an error grabbing your email. This has been happening occasionally. I'm working on figuring out why, but in the meantime you can grab the preview here:" ]
+                                , Element.el
+                                    [ Element.centerX
+                                    , Element.spacing 8
+                                    , Element.paddingXY 0 10
+                                    , Font.color (Element.rgb255 7 81 219)
+                                    , Font.underline
+                                    ]
+                                    (Element.link [] { url = "http://static.fantasycoding.com/ltcwbb-preview-BLJUZ.pdf", label = Element.text "Learn to Code with Baseball - Preview" })
+                                , Element.paragraph
+                                    [ fill
+                                    , Element.spacing 8
+                                    , Element.paddingXY 0 10
+                                    ]
+                                    [ Element.text "Please email me ("
+                                    , Element.link
+                                        [ Font.color (Element.rgb255 7 81 219)
+                                        ]
+                                        { url = "mailto:nate@nathanbraun.com"
+                                        , label = Element.text "nate@nathanbraun.com"
+                                        }
+                                    , Element.text ") with any questions, feedback or if you want me to add you to the mailing list manually. Always happy to talk!"
+                                    ]
+                                ]
+
+                        _ ->
                             Element.wrappedRow
                                 [ fill
                                 , Element.spacing 20
@@ -997,3 +1035,18 @@ onEnter msg =
                     )
             )
         )
+
+
+viewLoading : Element msg
+viewLoading =
+    Element.column [ Element.width Element.fill ]
+        [ Element.el [ Element.centerX, Element.centerY ]
+            (Loading.render
+                Circle
+                -- LoaderType
+                { defaultConfig | color = "#333", size = 75, speed = 0.7 }
+                -- Config
+                Loading.On
+                |> Element.html
+            )
+        ]
