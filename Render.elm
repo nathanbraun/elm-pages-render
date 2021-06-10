@@ -955,8 +955,9 @@ renderer =
     , tableHeaderCell =
         \maybeAlignment children model ->
             Element.paragraph [] (renderAll model children)
+    , strikethrough = \_ _ -> Element.none
     , tableCell =
-        \children model ->
+        \_ children model ->
             Element.paragraph []
                 (renderAll model
                     children
